@@ -20,8 +20,6 @@ $ go get github.com/joshbohde/congestion
 ## Usage
 
 ```
-package congestion_test
-
 import (
 	"context"
 	"log"
