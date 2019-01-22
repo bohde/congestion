@@ -5,39 +5,43 @@ import (
 	"testing"
 )
 
-func TestAck(t *testing.T) {
+func TestRelease(t *testing.T) {
 	cases := []struct {
-		Stage    stage
-		Limit    int
-		MaxLimit int
-		Expected int
+		Stage         stage
+		AcksLeft      int
+		Outstanding   int
+		Limit         int
+		Expected      int
+		ExpectedStage stage
 	}{
-		{recovering, 1, 100, 1},
-		{waiting, 1, 100, 1},
-		{slowStart, 1, 100, 2},
-		{slowStart, 50, 100, 100},
-		{slowStart, 52, 100, 100},
-		{increasing, 52, 100, 53},
-		{increasing, 99, 100, 100},
-		{increasing, 100, 100, 100},
+		{recovering, 1, 10, 10, 10, waiting},
+		{waiting, 2, 10, 10, 10, waiting},
+		{waiting, 1, 10, 10, 10, increasing},
+		{waiting, 1, 9, 10, 10, waiting},
+		{slowStart, 2, 10, 10, 10, slowStart},
+		{slowStart, 1, 10, 10, 20, slowStart},
+		{increasing, 2, 10, 10, 10, increasing},
+		{increasing, 1, 10, 10, 11, increasing},
 	}
 
 	for _, tc := range cases {
 		l := Limiter{
-			stage:    tc.Stage,
-			limit:    tc.Limit,
-			maxLimit: tc.MaxLimit,
+			stage:       tc.Stage,
+			acksLeft:    tc.AcksLeft,
+			outstanding: tc.Outstanding,
+			limit:       tc.Limit,
+			maxLimit:    1000,
 		}
 
-		l.ack()
+		l.Release()
 
 		actual := l.limit
+		actualStage := l.stage
 
-		if actual != tc.Expected {
-			t.Errorf("Ack %s limit=%d maxLimit=%d is %d, expected %d", tc.Stage, tc.Limit, tc.MaxLimit, actual, tc.Expected)
+		if actual != tc.Expected || actualStage != tc.ExpectedStage {
+			t.Errorf("Ack %s acksLeft=%d limit=%d is %d %s, expected %d %s", tc.Stage, tc.AcksLeft, tc.Limit, actual, actualStage, tc.Expected, tc.ExpectedStage)
 		}
 	}
-
 }
 
 func TestBackoff(t *testing.T) {
