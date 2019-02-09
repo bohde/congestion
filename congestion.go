@@ -15,10 +15,9 @@ type Config struct {
 }
 
 type Limiter struct {
-	mu       sync.Mutex
-	waiters  priorityQueue
-	stage    stage
-	capacity int
+	mu      sync.Mutex
+	waiters priorityQueue
+	stage   stage
 
 	acksLeft    int
 	outstanding int
@@ -31,9 +30,8 @@ func New(cfg Config) Limiter {
 		stage:    slowStart,
 		limit:    1,
 		acksLeft: 1,
-		capacity: cfg.Capacity,
 		maxLimit: cfg.MaxLimit,
-		waiters:  newQueue(),
+		waiters:  newQueue(cfg.Capacity),
 	}
 }
 
@@ -48,19 +46,17 @@ func (l *Limiter) Acquire(ctx context.Context, priority int) error {
 		return nil
 	}
 
-	// If our queue is full, drop
-	if l.waiters.Len() == l.capacity {
-		l.mu.Unlock()
-		return Dropped
-	}
-
 	r := rendezvouz{
 		priority: priority,
 		errChan:  make(chan error),
 	}
 
-	l.waiters.Push(&r)
+	pushed := l.waiters.Push(&r)
 	l.mu.Unlock()
+
+	if !pushed {
+		return Dropped
+	}
 
 	select {
 

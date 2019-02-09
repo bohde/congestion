@@ -1,6 +1,8 @@
 package congestion
 
-import "container/heap"
+import (
+	"container/heap"
+)
 
 // rendezvouz is for returning context to the calling goroutine
 type rendezvouz struct {
@@ -53,16 +55,40 @@ func (pq *queue) Pop() interface{} {
 
 type priorityQueue queue
 
-func newQueue() priorityQueue {
-	return priorityQueue(make([]*rendezvouz, 0))
+func newQueue(capacity int) priorityQueue {
+	return priorityQueue(make([]*rendezvouz, 0, capacity))
 }
 
 func (pq *priorityQueue) Len() int {
-	return (*queue)(pq).Len()
+	return len(*pq)
 }
 
-func (pq *priorityQueue) Push(r *rendezvouz) {
+func (pq *priorityQueue) Cap() int {
+	return cap(*pq)
+}
+
+func (pq *priorityQueue) push(r *rendezvouz) {
 	heap.Push((*queue)(pq), r)
+}
+
+func (pq *priorityQueue) Push(r *rendezvouz) bool {
+	// If we're under capacity, push it to the queue
+	if pq.Len() < pq.Cap() {
+		pq.push(r)
+		return true
+	}
+
+	// otherwise, we need to check if this takes priority over the last element
+	last := (*pq)[pq.Len()-1]
+	if last.priority < r.priority {
+		heap.Remove((*queue)(pq), last.index)
+		last.Drop()
+		pq.push(r)
+		return true
+	}
+
+	return false
+
 }
 
 func (pq *priorityQueue) Pop() *rendezvouz {
