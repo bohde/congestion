@@ -44,7 +44,7 @@ func TestRelease(t *testing.T) {
 	}
 }
 
-func TestBackoff(t *testing.T) {
+func TestRateBackoff(t *testing.T) {
 	cases := []struct {
 		Stage    stage
 		AcksLeft int
