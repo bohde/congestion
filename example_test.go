@@ -2,38 +2,47 @@ package congestion_test
 
 import (
 	"context"
-	"log"
+	"time"
 
 	"github.com/joshbohde/congestion"
 )
 
-func foo() error {
+func doRequest() error {
 	return nil
 }
 
 func Example() {
-	const HighPriority = 100
+	const (
+		HighPriority = 100
+	)
 
+	// A limiter can be used to manage concurrent access to a rate limited resource
 	limiter := congestion.New(congestion.Config{
 		Capacity: 10,
 		MaxLimit: 10,
 	})
 
-	err := limiter.Acquire(context.Background(), HighPriority)
-
-	// If we get an error, the queue was full
-	if err != nil {
-		log.Print("Got an error:", err)
-		return
+	// backoff manages a single retryable request with priority
+	backoff := congestion.Backoff{
+		Step:     100 * time.Millisecond,
+		Limiter:  &limiter,
+		Priority: HighPriority,
 	}
-	defer limiter.Release()
+	defer backoff.Close()
 
-	// Make some sort of request
-	err = foo()
+	// Try the request until either it succeeds, or the context is canceled
+	for backoff.Try(context.Background()) {
 
-	// If this error signals we are overloading the server, we need to backoff
-	if err != nil {
-		limiter.Backoff()
+		// Make some sort of request to the rate limited resource
+		err := doRequest()
+
+		// If this error signals we are overloading the server, we'll retry
+		if err != nil {
+			continue
+		}
+
+		// Otherwise return
+		return
 	}
 
 }

@@ -27,30 +27,37 @@ import (
 	"github.com/joshbohde/congestion"
 )
 
-func Example() {
-	const HighPriority = 100
+	const (
+		HighPriority = 100
+	)
 
+	// A limiter can be used to manage concurrent access to a rate limited resource
 	limiter := congestion.New(congestion.Config{
 		Capacity: 10,
 		MaxLimit: 10,
 	})
 
-	err := limiter.Acquire(context.Background(), HighPriority)
+	// backoff manages a single retryable request with priority
+	backoff := congestion.Backoff{
+		Step:     100 * time.Millisecond,
+		Limiter:  &limiter,
+		Priority: HighPriority,
+	}
+	defer backoff.Close()
 
-	// If we get an error, the queue was full
-	if err != nil {
-		log.Print("Got an error:", err)
+	// Try the request until either it succeeds, or the context is canceled
+	for backoff.Try(context.Background()) {
+
+		// Make some sort of request to the rate limited resource
+		err := doRequest()
+
+		// If this error signals we are overloading the server, we'll retry
+		if err != nil {
+			continue
+		}
+
+		// Otherwise return
 		return
 	}
-	defer limiter.Release()
-
-	// Make some sort of request
-	err = foo()
-
-	// If this error signals we are overloading the server, we need to backoff
-	if err != nil {
-		limiter.Backoff()
-	}
-
 }
 ```
