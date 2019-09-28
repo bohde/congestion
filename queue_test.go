@@ -85,30 +85,58 @@ func TestDropLast(t *testing.T) {
 }
 
 func BenchmarkQueue(b *testing.B) {
-	q := newQueue(b.N)
-	r := rendezvouz{}
+	b.Run("newQueue", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			newQueue(10)
+		}
 
-	for i := 0; i < b.N; i++ {
-		q.Push(&r)
-	}
-}
+	})
 
-func BenchmarkQueueFull(b *testing.B) {
-	q := newQueue(10)
+	b.Run("Push", func(b *testing.B) {
+		b.Run("Empty", func(b *testing.B) {
+			q := newQueue(b.N)
+			r := rendezvouz{}
 
-	for i := 0; i < 10; i++ {
-		r := &rendezvouz{}
-		q.Push(r)
-	}
+			for i := 0; i < b.N; i++ {
+				q.Push(&r)
+			}
 
-	for i := 0; i < b.N; i++ {
-		r := &rendezvouz{priority: i + 1}
-		q.Push(r)
-	}
-}
+		})
 
-func BenchmarkQueueAllocs(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		newQueue(10)
-	}
+		b.Run("Full", func(b *testing.B) {
+			q := newQueue(10)
+
+			for i := 0; i < 10; i++ {
+				r := &rendezvouz{}
+				q.Push(r)
+			}
+
+			for i := 0; i < b.N; i++ {
+				r := &rendezvouz{priority: i + 1}
+				q.Push(r)
+			}
+		})
+	})
+
+	b.Run("Pop", func(b *testing.B) {
+		q := newQueue(b.N)
+
+		for i := 0; i < b.N; i++ {
+			r := rendezvouz{}
+			q.Push(&r)
+		}
+
+		b.ResetTimer()
+
+		var out *rendezvouz
+
+		for i := 0; i < b.N; i++ {
+			out = q.Pop()
+		}
+
+		if out != nil {
+		}
+
+	})
+
 }
