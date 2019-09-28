@@ -4,6 +4,8 @@ import (
 	"container/heap"
 )
 
+const maxInt = int((^uint(0)) >> 1)
+
 // rendezvouz is for returning context to the calling goroutine
 type rendezvouz struct {
 	priority int
@@ -53,6 +55,24 @@ func (pq *queue) Pop() interface{} {
 	return item
 }
 
+func (pq *queue) lowestIndex() int {
+	old := *pq
+	n := len(old)
+	index := n / 2
+
+	lowestIndex := index
+	priority := maxInt
+
+	for i := index; i < n; i++ {
+		if old[i].priority < priority {
+			lowestIndex = i
+			priority = old[i].priority
+		}
+	}
+
+	return lowestIndex
+}
+
 type priorityQueue queue
 
 func newQueue(capacity int) priorityQueue {
@@ -78,12 +98,15 @@ func (pq *priorityQueue) Push(r *rendezvouz) bool {
 		return true
 	}
 
-	// otherwise, we need to check if this takes priority over the last element
-	last := (*pq)[pq.Len()-1]
+	// otherwise, we need to check if this takes priority over the lowest element
+	lowestIndex := ((*queue)(pq)).lowestIndex()
+	last := (*pq)[lowestIndex]
 	if last.priority < r.priority {
-		heap.Remove((*queue)(pq), last.index)
+		(*pq)[lowestIndex] = r
+		heap.Fix((*queue)(pq), lowestIndex)
+
 		last.Drop()
-		pq.push(r)
+
 		return true
 	}
 
