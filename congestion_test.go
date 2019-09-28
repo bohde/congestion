@@ -127,54 +127,57 @@ func TestLimiterCanHaveMultiple(t *testing.T) {
 	}
 }
 
-func BenchmarkLimiterUnblocked(b *testing.B) {
-	c := New(Config{10, 10})
+func BenchmarkLimiter(b *testing.B) {
+	b.Run("Unblocked", func(b *testing.B) {
+		c := New(Config{10, 10})
 
-	ctx := context.Background()
-	b.ResetTimer()
+		ctx := context.Background()
+		b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		err := c.Acquire(ctx, 100)
+		for i := 0; i < b.N; i++ {
+			err := c.Acquire(ctx, 100)
 
-		if err != nil {
-			b.Log("Got an error:", err)
-			return
-		}
-		c.Release()
-	}
-	b.StopTimer()
-}
-
-func BenchmarkLimiterBlocked(b *testing.B) {
-	const concurrent = 4
-
-	c := New(Config{10, 10})
-	c.limit = concurrent
-
-	ctx := context.Background()
-
-	// Acquire maximum outstanding to avoid fast path
-	for i := 0; i < concurrent; i++ {
-		err := c.Acquire(ctx, 100)
-		if err != nil {
-			b.Error("Got an error:", err)
-			return
-		}
-	}
-
-	b.ResetTimer()
-
-	// Race the release and the acquire in order to benchmark slow path
-	for i := 0; i < b.N; i++ {
-		go func() {
+			if err != nil {
+				b.Log("Got an error:", err)
+				return
+			}
 			c.Release()
-
-		}()
-		err := c.Acquire(ctx, 100)
-
-		if err != nil {
-			b.Log("Got an error:", err)
-			return
 		}
-	}
+	})
+
+	b.Run("Blocked", func(b *testing.B) {
+		const concurrent = 4
+
+		c := New(Config{10, 10})
+		c.limit = concurrent
+
+		ctx := context.Background()
+
+		// Acquire maximum outstanding to avoid fast path
+		for i := 0; i < concurrent; i++ {
+			err := c.Acquire(ctx, 100)
+			if err != nil {
+				b.Error("Got an error:", err)
+				return
+			}
+		}
+
+		b.ResetTimer()
+
+		// Race the release and the acquire in order to benchmark slow path
+		for i := 0; i < b.N; i++ {
+			go func() {
+				c.Release()
+
+			}()
+			err := c.Acquire(ctx, 100)
+
+			if err != nil {
+				b.Log("Got an error:", err)
+				return
+			}
+		}
+
+	})
+
 }
