@@ -52,6 +52,12 @@ func TestConcurrentSimulation(t *testing.T) {
 		t.Skip()
 	}
 
+	const (
+		perSecond   = 1000
+		testSeconds = 1
+		iterations  = perSecond * testSeconds
+	)
+
 	wg := sync.WaitGroup{}
 
 	c := Capped{cap: 10}
@@ -69,16 +75,19 @@ func TestConcurrentSimulation(t *testing.T) {
 
 			success := int64(0)
 
-			for i := 0; i < 1000; i++ {
-				time.Sleep(msToWait(1000))
+			for i := 0; i < iterations; i++ {
+				time.Sleep(msToWait(perSecond))
 				inner.Add(1)
 
 				go func() {
 					defer inner.Done()
+
 					err := limiter.Acquire(context.Background(), 0)
+
 					if err != nil {
 						return
 					}
+
 					defer limiter.Release()
 
 					err = c.Lock()
@@ -87,13 +96,17 @@ func TestConcurrentSimulation(t *testing.T) {
 						return
 					}
 					defer c.Unlock()
+
 					time.Sleep(msToWait(100))
 					atomic.AddInt64(&success, 1)
 
 				}()
 			}
 
-			t.Logf("limit=%d, success=%f", limiter.limit, (float64(success) / 1000))
+			// Wait for the inner loop to finish
+			inner.Wait()
+
+			t.Logf("limit=%d, success=%f", limiter.limit, (float64(success) / iterations))
 
 		}()
 	}
@@ -112,6 +125,12 @@ func TestBackoffConcurrentSimulation(t *testing.T) {
 		t.Skip()
 	}
 
+	const (
+		perSecond   = 1000
+		testSeconds = 1
+		iterations  = testSeconds * perSecond
+	)
+
 	wg := sync.WaitGroup{}
 
 	c := Capped{cap: 10}
@@ -129,11 +148,12 @@ func TestBackoffConcurrentSimulation(t *testing.T) {
 
 			success := int64(0)
 
-			for i := 0; i < 1000; i++ {
-				time.Sleep(msToWait(1000))
+			for i := 0; i < iterations; i++ {
+				time.Sleep(msToWait(perSecond))
 				inner.Add(1)
 
 				go func() {
+
 					defer inner.Done()
 					b := Backoff{
 						Limiter:  &limiter,
@@ -143,12 +163,16 @@ func TestBackoffConcurrentSimulation(t *testing.T) {
 					defer b.Close()
 
 					for b.Try(context.Background()) {
+
 						err := c.Lock()
 						if err != nil {
 							continue
 						}
+
 						time.Sleep(msToWait(100))
+
 						c.Unlock()
+
 						atomic.AddInt64(&success, 1)
 						break
 					}
@@ -156,7 +180,10 @@ func TestBackoffConcurrentSimulation(t *testing.T) {
 				}()
 			}
 
-			t.Logf("priority=%d, limit=%d, success=%f", priority, limiter.limit, (float64(success) / 1000))
+			// Wait for the inner loop to finish
+			inner.Wait()
+
+			t.Logf("priority=%d, limit=%d, success=%f", priority, limiter.limit, (float64(success) / (iterations)))
 
 		}()
 	}
