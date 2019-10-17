@@ -97,6 +97,8 @@ func BenchmarkQueue(b *testing.B) {
 			q := newQueue(b.N)
 			r := rendezvouz{}
 
+			b.ResetTimer()
+
 			for i := 0; i < b.N; i++ {
 				q.Push(&r)
 			}
@@ -104,17 +106,52 @@ func BenchmarkQueue(b *testing.B) {
 		})
 
 		b.Run("Full", func(b *testing.B) {
-			q := newQueue(10)
+			const (
+				cap      = 10
+				overflow = cap + 1
+			)
 
-			for i := 0; i < 10; i++ {
+			b.Run("Increasing", func(b *testing.B) {
+				q := newQueue(cap)
+
 				r := &rendezvouz{}
-				q.Push(r)
-			}
+				for i := 0; i < cap; i++ {
+					q.Push(r)
+				}
 
-			for i := 0; i < b.N; i++ {
-				r := &rendezvouz{priority: i + 1}
-				q.Push(r)
-			}
+				// Pre allocate enough rendezvouz instances to
+				// so that we don't need to allocate in the loop
+				rs := make([]rendezvouz, overflow)
+
+				b.ResetTimer()
+
+				for i := 0; i < b.N; i++ {
+					r := &rs[i%overflow]
+					r.priority = i
+					q.Push(r)
+				}
+			})
+
+			b.Run("Decreasing", func(b *testing.B) {
+				q := newQueue(cap)
+
+				r := &rendezvouz{}
+				for i := 0; i < cap; i++ {
+					q.Push(r)
+				}
+
+				// Pre allocate enough rendezvouz instances to
+				// so that we don't need to allocate in the loop
+				rs := make([]rendezvouz, overflow)
+
+				b.ResetTimer()
+
+				for i := b.N; i > 0; i-- {
+					r := &rs[i%overflow]
+					r.priority = i
+					q.Push(r)
+				}
+			})
 		})
 	})
 
@@ -130,10 +167,13 @@ func BenchmarkQueue(b *testing.B) {
 
 		var out *rendezvouz
 
+		b.ResetTimer()
+
 		for i := 0; i < b.N; i++ {
 			out = q.Pop()
 		}
 
+		// To prevent optimization
 		if out != nil {
 		}
 
