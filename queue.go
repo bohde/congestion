@@ -55,24 +55,6 @@ func (pq *queue) Pop() interface{} {
 	return item
 }
 
-func (pq *queue) lowestIndex() int {
-	old := *pq
-	n := len(old)
-	index := n / 2
-
-	lowestIndex := index
-	priority := maxInt
-
-	for i := index; i < n; i++ {
-		if old[i].priority < priority {
-			lowestIndex = i
-			priority = old[i].priority
-		}
-	}
-
-	return lowestIndex
-}
-
 type priorityQueue queue
 
 func newQueue(capacity int) priorityQueue {
@@ -99,7 +81,20 @@ func (pq *priorityQueue) Push(r *rendezvouz) bool {
 	}
 
 	// otherwise, we need to check if this takes priority over the lowest element
-	lowestIndex := ((*queue)(pq)).lowestIndex()
+	old := *pq
+	n := len(old)
+	index := n / 2
+
+	lowestIndex := index
+	priority := maxInt
+
+	for i := index; i < n; i++ {
+		if old[i].priority < priority {
+			lowestIndex = i
+			priority = old[i].priority
+		}
+	}
+
 	last := (*pq)[lowestIndex]
 	if last.priority < r.priority {
 		(*pq)[lowestIndex] = r
@@ -111,15 +106,15 @@ func (pq *priorityQueue) Push(r *rendezvouz) bool {
 	}
 
 	return false
-
 }
 
-func (pq *priorityQueue) Pop() *rendezvouz {
-	if (*queue)(pq).Len() <= 0 {
-		return nil
-	}
-	r := heap.Pop((*queue)(pq)).(*rendezvouz)
-	return r
+func (pq *priorityQueue) Empty() bool {
+	return (*queue)(pq).Len() <= 0
+}
+
+func (pq *priorityQueue) Pop() rendezvouz {
+	ret := heap.Pop((*queue)(pq)).(*rendezvouz)
+	return *ret
 }
 
 func (pq *priorityQueue) Remove(r *rendezvouz) {

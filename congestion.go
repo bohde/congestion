@@ -131,9 +131,11 @@ func (l *Limiter) Release() {
 		panic("lock: bad release")
 	}
 
-	keepGoing := true
-	for keepGoing && l.outstanding < l.limit {
-		keepGoing = l.deque()
+	for !l.waiters.Empty() && l.outstanding < l.limit {
+		rendezvouz := l.waiters.Pop()
+
+		l.outstanding++
+		rendezvouz.Signal()
 	}
 
 	l.mu.Unlock()
@@ -174,19 +176,4 @@ func (l *Limiter) Backoff() {
 	l.stage = recovering
 
 	l.mu.Unlock()
-}
-
-// Pull instances off the queue until we no longer drop
-func (l *Limiter) deque() bool {
-	rendezvouz := l.waiters.Pop()
-
-	// Nothing to dequeue, so return
-	if rendezvouz == nil {
-		return false
-	}
-
-	l.outstanding++
-	rendezvouz.Signal()
-
-	return true
 }

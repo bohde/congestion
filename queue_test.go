@@ -42,10 +42,10 @@ func TestRemove(t *testing.T) {
 
 	q.Remove(&c)
 
-	actual := q.Pop().priority
+	r := q.Pop()
 
-	if actual != b.priority {
-		t.Errorf("Got %d, expected %d", actual, b.priority)
+	if r.priority != b.priority {
+		t.Errorf("Got %d, expected %d", r.priority, b.priority)
 	}
 }
 
@@ -165,7 +165,7 @@ func BenchmarkQueue(b *testing.B) {
 
 		b.ResetTimer()
 
-		var out *rendezvouz
+		var out rendezvouz
 
 		b.ResetTimer()
 
@@ -174,7 +174,7 @@ func BenchmarkQueue(b *testing.B) {
 		}
 
 		// To prevent optimization
-		if out != nil {
+		if out.priority != 0 {
 		}
 
 	})
