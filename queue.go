@@ -98,9 +98,13 @@ func (pq *priorityQueue) Push(r *rendezvouz) bool {
 	last := (*pq)[lowestIndex]
 	if last.priority < r.priority {
 		(*pq)[lowestIndex] = r
+
+		// Fix index
 		r.index = lowestIndex
 		heap.Fix((*queue)(pq), lowestIndex)
 
+		// For safety
+		last.index = -1
 		last.Drop()
 
 		return true
