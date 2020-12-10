@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/flyingmutant/rapid"
+	"pgregory.net/rapid"
 )
 
 func TestPriority(t *testing.T) {
